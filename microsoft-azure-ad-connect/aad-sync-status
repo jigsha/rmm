@@ -1,0 +1,29 @@
+##########
+#
+# Custom Service Monitor for Azure AD Connect Warning and Failure Events 
+# Created by: Jigar Shah
+# Last Updated: June 19, 2018
+# Notes:  Add script to N-Central Automation Policy with 4 Outputs: DirectorySyncHealthWarnings, DirectorySyncHealthErrors, EventMessage and ScriptError
+#   
+##########
+
+$EventLog = "Application"
+
+try {
+    $WarningEvents = get-eventlog -LogName $Eventlog | Where-Object { ($_.EventID -eq 6012 -OR $_.EventID -eq 6100 -OR $_.EventID -eq 6105 -OR $_.EventID -eq 6110 -OR $_.EventID -eq 6126 -OR $_.EventID -eq 6127) -AND $_.timegenerated -gt (get-date).adddays(-1)}| select message
+    $ErrorEvents = get-eventlog -LogName $Eventlog | Where-Object { ($_.EventID -eq 106 -OR $_.EventID -eq 109 -OR $_.EventID -eq 6801 -OR $_.EventID -eq 6803 -OR $_.EventID -eq 6941) -AND $_.timegenerated -gt (get-date).adddays(-1)}| select message
+    if ($WarningEvents) { $DirectorySyncHealthWarnings = "$($WarningEvents.Count) Directory Synchronization warning(s) occured within last day." }
+    else { $DirectorySyncHealthWarnings = "Healthy" }
+    if ($ErrorEvents) { $DirectorySyncHealthErrors = "$($ErrorEvents.Count) Directory Synchronization error occured within last day." }
+    else { $DirectorySyncHealthErrors = "Healthy"}
+}
+catch {
+    $ScriptError = "Azure AD Connect event monitoring script has failed: $($_.Exception.Message)"
+    exit
+}
+
+if ($ErrorEvents.Count -gt 0) { $EventMessage = "$($ErrorEvents[0].Message)" }
+elseif ($WarningEvents.Count -gt 0) { $EventMessage = "$($WarningEvents[0].Message)" }
+else { $EventMessage = "None" }
+
+if (!$ScriptError) { $ScriptError = "Healthy"}
